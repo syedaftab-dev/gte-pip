@@ -1,0 +1,291 @@
+(venv) cse-sdpl@cse-sdpl-HP-Z4-G5-Workstation-Desktop-PC:~/gte-zip$ python test.py --fusion_mode cross_attn --d_proj 128 --model_dir Log/fusion_cross_attn_d128_2026-07-30-15-02-19/model/
+==============================================
+Evaluate on Test_60
+==============================================
+Fold1_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.3511434115159015
+Test binary acc:  0.7521302495435179
+Test precision: 0.3159041394335512
+Test recall:  0.4891566265060241
+Test f1:  0.3838880484114977
+Test AUROC:  0.7114308820792248
+Test MCC:  0.2465375879240437
+Test AUPRC:  0.32094398991996603
+Threshold:  0.4
+
+Fold2_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.23325221482664346
+Test binary acc:  0.66661594643944
+Test precision: 0.25741324921135644
+Test recall:  0.5898795180722891
+Test f1:  0.35841874084919473
+Test AUROC:  0.694533501246834
+Test MCC:  0.20554676583837764
+Test AUPRC:  0.3028646053247115
+Threshold:  0.25
+
+Fold3_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.37112181158736346
+Test binary acc:  0.7982349360925137
+Test precision: 0.3651238896680692
+Test recall:  0.3763855421686747
+Test f1:  0.3706691979117228
+Test AUROC:  0.7118037676045222
+Test MCC:  0.2506018454395388
+Test AUPRC:  0.348127660179519
+Threshold:  0.48
+
+Fold4_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.2651023719459772
+Test binary acc:  0.7599665246500305
+Test precision: 0.3350641417226634
+Test recall:  0.5286746987951807
+Test f1:  0.41017012525705737
+Test AUROC:  0.7403527707360293
+Test MCC:  0.27989974133992557
+Test AUPRC:  0.3635512264107624
+Threshold:  0.44
+
+Fold5_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.14666568239529928
+Test binary acc:  0.7477175897748022
+Test precision: 0.328163943505954
+Test recall:  0.5710843373493976
+Test f1:  0.416813225466057
+Test AUROC:  0.7452244464351216
+Test MCC:  0.2874556530226833
+Test AUPRC:  0.34919079199593583
+Threshold:  0.48
+
+Full_model_25.pkl
+========== Evaluate Test set ==========
+Test loss:  0.2849781629318992
+Test binary acc:  0.7767802799756542
+Test precision: 0.35081625564432095
+Test recall:  0.4867469879518072
+Test f1:  0.4077513120710537
+Test AUROC:  0.7415551736261152
+Test MCC:  0.28025245662761666
+Test AUPRC:  0.3938542927278163
+Threshold:  0.32
+
+Full_model_45.pkl
+========== Evaluate Test set ==========
+Test loss:  0.44087958286205925
+Test binary acc:  0.7398813146682898
+Test precision: 0.3143646408839779
+Test recall:  0.548433734939759
+Test f1:  0.39964881474978053
+Test AUROC:  0.730003493965019
+Test MCC:  0.2646168563346986
+Test AUPRC:  0.3799526261046954
+Threshold:  0.13
+
+========== Cross-Validation Results ==========
+Average binary acc:  0.7449330493000608
+Average precision:  0.3203338727083188
+Average recall:  0.5110361445783133
+Average f1:  0.387991867579106
+Average AUROC:  0.7206690736203465
+Average MCC:  0.2540083187129138
+Average AUPRC:  0.3369356547661789
+Average threshold:  0.41
+
+==============================================
+Evaluate on Test_315-28
+==============================================
+Fold1_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.326879155786403
+Test binary acc:  0.7598714721081224
+Test precision: 0.29399916655090985
+Test recall:  0.49416296988092456
+Test f1:  0.3686639958195436
+Test AUROC:  0.7127759306429684
+Test MCC:  0.24396944324302805
+Test AUPRC:  0.3064677955358378
+Threshold:  0.44
+
+Fold2_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.2076652768596955
+Test binary acc:  0.7338843248973101
+Test precision: 0.26228053495594855
+Test recall:  0.4830726126546813
+Test f1:  0.33997453066589983
+Test AUROC:  0.6958801878647186
+Test MCC:  0.20523685436036018
+Test AUPRC:  0.29405503632428104
+Threshold:  0.43
+
+Fold3_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.3605824381061132
+Test binary acc:  0.7711839141380681
+Test precision: 0.2801742189463104
+Test recall:  0.3904973149661452
+Test f1:  0.3262618873445501
+Test AUROC:  0.6953885681996076
+Test MCC:  0.19677754094423147
+Test AUPRC:  0.291667235699157
+Threshold:  0.42
+
+Fold4_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.2662939850876971
+Test binary acc:  0.7977838876374719
+Test precision: 0.326109785202864
+Test recall:  0.3987858977352323
+Test f1:  0.3588046846279082
+Test AUROC:  0.7133344874452141
+Test MCC:  0.24191147962426304
+Test AUPRC:  0.31328702320632495
+Threshold:  0.62
+
+Fold5_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.15696052043903164
+Test binary acc:  0.7696270041075924
+Test precision: 0.31413066165727405
+Test recall:  0.52708381975251
+Test f1:  0.39365273115654564
+Test AUROC:  0.751466382289173
+Test MCC:  0.2759409619254435
+Test AUPRC:  0.33471394861454695
+Threshold:  0.54
+
+Full_model_25.pkl
+========== Evaluate Test set ==========
+Test loss:  0.24554245992975784
+Test binary acc:  0.8007155160991122
+Test precision: 0.3545408762800067
+Test recall:  0.493112304459491
+Test f1:  0.4125
+Test AUROC:  0.7594149763614362
+Test MCC:  0.302196342860373
+Test AUPRC:  0.3645819463651158
+Threshold:  0.4
+
+Full_model_45.pkl
+========== Evaluate Test set ==========
+Test loss:  0.4032912550409704
+Test binary acc:  0.7845832781237578
+Test precision: 0.3281467719461217
+Test recall:  0.4948634134952136
+Test f1:  0.39461925153602684
+Test AUROC:  0.7473175348440617
+Test MCC:  0.27851750125521824
+Test AUPRC:  0.35027873776568713
+Threshold:  0.33
+
+========== Cross-Validation Results ==========
+Average binary acc:  0.7664701205777129
+Average precision:  0.29533887346266136
+Average recall:  0.45872052299789867
+Average f1:  0.3574715659228895
+Average AUROC:  0.7137691112883363
+Average MCC:  0.23276725601946527
+Average AUPRC:  0.30803820787602954
+Average threshold:  0.49000000000000005
+
+==============================================
+Evaluate on UBtest_31-6
+==============================================
+Fold1_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.3190107719600201
+Test binary acc:  0.7478451918201792
+Test precision: 0.2491971740526654
+Test recall:  0.5457102672292545
+Test f1:  0.3421516754850088
+Test AUROC:  0.7105730540277825
+Test MCC:  0.23714995038365852
+Test AUPRC:  0.25749191680309413
+Threshold:  0.28
+
+Fold2_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.17736929908394813
+Test binary acc:  0.7809700861923272
+Test precision: 0.2676727561556791
+Test recall:  0.4739803094233474
+Test f1:  0.34213197969543147
+Test AUROC:  0.7186557974597093
+Test MCC:  0.235858091345654
+Test AUPRC:  0.2500843140555046
+Threshold:  0.38
+
+Fold3_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.2805974395573139
+Test binary acc:  0.817137062700693
+Test precision: 0.30697190426638915
+Test recall:  0.4149085794655415
+Test f1:  0.35287081339712917
+Test AUROC:  0.7440384431465804
+Test MCC:  0.25299390689457263
+Test AUPRC:  0.30919534121418957
+Threshold:  0.4
+
+Fold4_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.21561826318502425
+Test binary acc:  0.7997295926990029
+Test precision: 0.30084033613445377
+Test recall:  0.5035161744022504
+Test f1:  0.3766438716465018
+Test AUROC:  0.7510994292531661
+Test MCC:  0.2788051949370682
+Test AUPRC:  0.3135116355266271
+Threshold:  0.44
+
+Fold5_best_model.pkl
+========== Evaluate Test set ==========
+Test loss:  0.1310889571905136
+Test binary acc:  0.8120669258069968
+Test precision: 0.3059051306873185
+Test recall:  0.4444444444444444
+Test f1:  0.3623853211009174
+Test AUROC:  0.737145633648938
+Test MCC:  0.26271762539114496
+Test AUPRC:  0.29768593336378313
+Threshold:  0.53
+
+Full_model_25.pkl
+========== Evaluate Test set ==========
+Test loss:  0.275314879566431
+Test binary acc:  0.820517153963157
+Test precision: 0.29942857142857143
+Test recall:  0.36849507735583686
+Test f1:  0.33039092055485497
+Test AUROC:  0.7040988624507155
+Test MCC:  0.22967621011970063
+Test AUPRC:  0.28127640478543203
+Threshold:  0.44
+
+Full_model_45.pkl
+========== Evaluate Test set ==========
+Test loss:  0.4154976338148117
+Test binary acc:  0.7868852459016393
+Test precision: 0.2549019607843137
+Test recall:  0.4022503516174402
+Test f1:  0.3120567375886525
+Test AUROC:  0.70065360589561
+Test MCC:  0.20045294384140327
+Test AUPRC:  0.2728569961826259
+Threshold:  0.24
+
+========== Cross-Validation Results ==========
+Average binary acc:  0.7915497718438399
+Average precision:  0.2861174602593012
+Average recall:  0.47651195499296756
+Average f1:  0.35523673226499775
+Average AUROC:  0.7323024715072353
+Average MCC:  0.25350495379041965
+Average AUPRC:  0.2855938281926397
+Average threshold:  0.406

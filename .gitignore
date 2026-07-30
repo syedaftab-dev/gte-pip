@@ -1,0 +1,91 @@
+# ============================================================
+#  GTE-PPIS  —  .gitignore
+# ============================================================
+
+# ─── Python ─────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.mypy_cache/
+.pytype/
+.pyre/
+.ruff_cache/
+.dmypy.json
+
+# ─── Virtual Environment ────────────────────────────────────
+venv/
+env/
+.venv/
+.env/
+ENV/
+
+# ─── Jupyter / IPython ──────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ─── Training Logs & Checkpoints ────────────────────────────
+# All timestamped experiment run directories
+Log/
+*.log
+
+# ─── Large Feature / Dataset Files ──────────────────────────
+# NumPy feature arrays (PSSM, HMM, ESM-2 embeddings)
+Feature/
+Feature/esm2/
+
+# Pickle dataset files
+Dataset/*.pkl
+
+# Raw PDB structure files
+pdb/
+
+# ─── Model Weights ──────────────────────────────────────────
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.hdf5
+*.safetensors
+
+# ─── Experiment / Generated Outputs ─────────────────────────
+results/
+outputs/
+predictions/
+*.csv
+*.tsv
+*.json
+!requirements*.json
+
+# ─── OS & Editor ────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.directory
+
+# ─── Terminal / Shell recordings ────────────────────────────
+teminal.log
+*.typescript
+*.script
+
+# ─── Reports (generated, not source) ────────────────────────
+report_3dsca.html
+
+# ─── Misc ───────────────────────────────────────────────────
+.env
+.envrc
+*.bak
+*.tmp
+tmp/

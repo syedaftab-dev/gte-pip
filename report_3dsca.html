@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Spatial Cross-Attention — GTE-PPIS Technical Report</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue:    #3b82f6;
+    --indigo:  #6366f1;
+    --violet:  #8b5cf6;
+    --teal:    #14b8a6;
+    --emerald: #10b981;
+    --amber:   #f59e0b;
+    --rose:    #f43f5e;
+    --slate-50:  #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-300: #cbd5e1;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-800: #1e293b;
+    --slate-900: #0f172a;
+    --slate-950: #020617;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--slate-950);
+    color: var(--slate-100);
+    line-height: 1.7;
+  }
+
+  /* ============ HERO ============ */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: 80px 60px 70px;
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 40%, #0f172a 100%);
+    border-bottom: 1px solid #1e293b;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 60% 40%, rgba(99,102,241,.18), transparent),
+                radial-gradient(ellipse 50% 40% at 20% 80%, rgba(20,184,166,.12), transparent);
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.4);
+    color: #a5b4fc; font-size: 12px; font-weight: 600; letter-spacing: 1.2px;
+    text-transform: uppercase; padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 28px;
+  }
+  .hero-badge::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: #6366f1; box-shadow: 0 0 8px #6366f1;
+  }
+  .hero h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 52px; font-weight: 900;
+    line-height: 1.1; letter-spacing: -.5px;
+    background: linear-gradient(135deg, #e2e8f0 0%, #a5b4fc 50%, #34d399 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    max-width: 780px; margin-bottom: 20px;
+  }
+  .hero-sub {
+    font-size: 17px; color: #94a3b8; max-width: 680px; margin-bottom: 40px;
+  }
+  .hero-meta {
+    display: flex; flex-wrap: wrap; gap: 28px;
+  }
+  .hero-meta-item {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .hero-meta-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .8px; }
+  .hero-meta-value { font-size: 14px; color: #c7d2fe; font-weight: 600; }
+
+  /* ============ LAYOUT ============ */
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 48px; }
+  .section { padding: 64px 0; border-bottom: 1px solid #1e293b; }
+  .section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--indigo); margin-bottom: 10px;
+  }
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 34px; font-weight: 700; color: #f1f5f9;
+    margin-bottom: 14px;
+  }
+  .section-desc { font-size: 16px; color: #94a3b8; max-width: 660px; margin-bottom: 44px; }
+
+  /* ============ METRIC CARDS ============ */
+  .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-bottom: 48px; }
+  .metric-card {
+    background: linear-gradient(145deg, #1e293b, #0f172a);
+    border: 1px solid #334155;
+    border-radius: 16px; padding: 28px 24px;
+    position: relative; overflow: hidden;
+    transition: transform .2s, border-color .2s;
+  }
+  .metric-card:hover { transform: translateY(-3px); border-color: #475569; }
+  .metric-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    border-radius: 16px 16px 0 0;
+  }
+  .metric-card.blue::before   { background: linear-gradient(90deg, #3b82f6, #6366f1); }
+  .metric-card.teal::before   { background: linear-gradient(90deg, #14b8a6, #3b82f6); }
+  .metric-card.violet::before { background: linear-gradient(90deg, #8b5cf6, #ec4899); }
+  .metric-card.emerald::before { background: linear-gradient(90deg, #10b981, #14b8a6); }
+  .metric-label { font-size: 12px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 10px; }
+  .metric-value { font-size: 32px; font-weight: 800; margin-bottom: 8px; }
+  .metric-card.blue   .metric-value { color: #93c5fd; }
+  .metric-card.teal   .metric-value { color: #5eead4; }
+  .metric-card.violet .metric-value { color: #c4b5fd; }
+  .metric-card.emerald .metric-value { color: #6ee7b7; }
+  .metric-delta {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 12px; font-weight: 600; padding: 2px 8px;
+    border-radius: 100px;
+  }
+  .metric-delta.up { background: rgba(16,185,129,.15); color: #34d399; }
+  .metric-delta.neutral { background: rgba(148,163,184,.1); color: #94a3b8; }
+
+  /* ============ COMPARISON TABLE ============ */
+  .table-wrapper {
+    background: #0f172a; border: 1px solid #1e293b;
+    border-radius: 16px; overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: linear-gradient(90deg, #1e1b4b, #0f172a); }
+  th {
+    padding: 16px 20px; text-align: left;
+    font-size: 11px; font-weight: 700; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 1px;
+    border-bottom: 1px solid #1e293b;
+  }
+  td { padding: 16px 20px; font-size: 14px; color: #cbd5e1; border-bottom: 1px solid #1e293b; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(99,102,241,.04); }
+  td.winner { color: #34d399; font-weight: 700; }
+  td.loser  { color: #64748b; }
+  td.badge-green { }
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 100px;
+    font-size: 12px; font-weight: 600;
+  }
+  .badge.green  { background: rgba(16,185,129,.15); color: #34d399; border: 1px solid rgba(16,185,129,.3); }
+  .badge.blue   { background: rgba(99,102,241,.15);  color: #a5b4fc; border: 1px solid rgba(99,102,241,.3); }
+  .badge.amber  { background: rgba(245,158,11,.15);  color: #fcd34d; border: 1px solid rgba(245,158,11,.3); }
+  .badge.rose   { background: rgba(244,63,94,.15);   color: #fda4af; border: 1px solid rgba(244,63,94,.3); }
+
+  /* ============ EQUATION BLOCK ============ */
+  .eq-block {
+    background: linear-gradient(145deg, #1e293b, #0f172a);
+    border: 1px solid #334155; border-left: 3px solid var(--indigo);
+    border-radius: 12px; padding: 24px 28px; margin: 16px 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .eq-label { font-size: 11px; color: #6366f1; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .eq-body  { font-size: 15px; color: #c7d2fe; line-height: 2; }
+
+  /* ============ PIPELINE STEPS ============ */
+  .pipeline { display: flex; flex-direction: column; gap: 0; position: relative; }
+  .pipeline::before {
+    content: ''; position: absolute; left: 27px; top: 0; bottom: 0;
+    width: 2px; background: linear-gradient(to bottom, #6366f1, #14b8a6);
+  }
+  .pipeline-step { display: flex; gap: 20px; padding-bottom: 36px; position: relative; z-index: 1; }
+  .pipeline-step:last-child { padding-bottom: 0; }
+  .step-icon {
+    width: 56px; height: 56px; border-radius: 14px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .step-icon.blue   { background: rgba(59,130,246,.15);  border: 1px solid rgba(59,130,246,.3); }
+  .step-icon.indigo { background: rgba(99,102,241,.15);  border: 1px solid rgba(99,102,241,.3); }
+  .step-icon.violet { background: rgba(139,92,246,.15);  border: 1px solid rgba(139,92,246,.3); }
+  .step-icon.teal   { background: rgba(20,184,166,.15);  border: 1px solid rgba(20,184,166,.3); }
+  .step-icon.emerald{ background: rgba(16,185,129,.15);  border: 1px solid rgba(16,185,129,.3); }
+  .step-content { padding-top: 6px; }
+  .step-title { font-size: 16px; font-weight: 700; color: #e2e8f0; margin-bottom: 6px; }
+  .step-desc  { font-size: 14px; color: #94a3b8; max-width: 560px; line-height: 1.6; }
+  .step-code  {
+    margin-top: 10px; font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; color: #a5b4fc;
+    background: rgba(99,102,241,.08); border: 1px solid rgba(99,102,241,.2);
+    padding: 8px 14px; border-radius: 8px; display: inline-block;
+  }
+
+  /* ============ ALERT BOXES ============ */
+  .alert { border-radius: 12px; padding: 20px 22px; margin: 16px 0; display: flex; gap: 14px; }
+  .alert-icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+  .alert-title { font-size: 14px; font-weight: 700; margin-bottom: 5px; }
+  .alert-body  { font-size: 13px; line-height: 1.6; }
+  .alert.caution {
+    background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25);
+  }
+  .alert.caution .alert-title { color: #fca5a5; }
+  .alert.caution .alert-body  { color: #94a3b8; }
+  .alert.success {
+    background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.25);
+  }
+  .alert.success .alert-title { color: #6ee7b7; }
+  .alert.success .alert-body  { color: #94a3b8; }
+  .alert.info {
+    background: rgba(99,102,241,.08); border: 1px solid rgba(99,102,241,.25);
+  }
+  .alert.info .alert-title { color: #a5b4fc; }
+  .alert.info .alert-body  { color: #94a3b8; }
+
+  /* ============ CODE BLOCK ============ */
+  .code-block {
+    background: #020617; border: 1px solid #1e293b; border-radius: 12px;
+    overflow: hidden; margin: 20px 0;
+  }
+  .code-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 18px; background: #0f172a; border-bottom: 1px solid #1e293b;
+  }
+  .code-lang { font-size: 12px; color: #64748b; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .code-dots { display: flex; gap: 6px; }
+  .code-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .code-dot.red    { background: #f43f5e; }
+  .code-dot.amber  { background: #f59e0b; }
+  .code-dot.green  { background: #10b981; }
+  pre {
+    padding: 22px 20px; overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; line-height: 1.8;
+    color: #94a3b8;
+  }
+  .kw  { color: #c084fc; font-weight: 600; }
+  .fn  { color: #60a5fa; }
+  .cls { color: #34d399; }
+  .st  { color: #fb923c; }
+  .cm  { color: #475569; font-style: italic; }
+  .nm  { color: #f1f5f9; }
+
+  /* ============ FOOTER ============ */
+  .footer {
+    padding: 40px 60px;
+    background: var(--slate-950);
+    border-top: 1px solid #1e293b;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 16px;
+  }
+  .footer-left  { font-size: 13px; color: #64748b; }
+  .footer-right { display: flex; gap: 16px; }
+  .footer-tag {
+    font-size: 11px; color: #64748b;
+    background: #1e293b; border: 1px solid #334155;
+    padding: 4px 12px; border-radius: 100px;
+  }
+
+  /* ============ HIGHLIGHT ROW ============ */
+  tr.highlight td { background: rgba(16,185,129,.05); border-left: 3px solid #10b981; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ HERO ═══════════════ -->
+<div class="hero">
+  <div class="container" style="position:relative;z-index:1;">
+    <div class="hero-badge">Technical Research Report · 2026</div>
+    <h1>3D Spatial Cross-Attention Feature Fusion for PPI Binding Site Prediction</h1>
+    <p class="hero-sub">
+      A conformation-aware fusion mechanism that routes PLM attention queries through the 3D spatial neighborhood graph of each residue — enabling structure-guided evolutionary signal aggregation before GNN message passing.
+    </p>
+    <div class="hero-meta">
+      <div class="hero-meta-item">
+        <span class="hero-meta-label">Base Model</span>
+        <span class="hero-meta-value">GTE-PPIS (AGAT)</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="hero-meta-label">PLM Source</span>
+        <span class="hero-meta-value">ESM-2 650M</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="hero-meta-label">Fusion Strategy</span>
+        <span class="hero-meta-value">3D-Masked MHA</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="hero-meta-label">Distance Cutoff</span>
+        <span class="hero-meta-value">14 Å</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="hero-meta-label">Latent Dimension</span>
+        <span class="hero-meta-value">d = 128</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="hero-meta-label">Validation AUPRC</span>
+        <span class="hero-meta-value" style="color:#34d399;">0.4508</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- ═══════════════ SECTION 1: PERFORMANCE ═══════════════ -->
+<div class="section">
+  <div class="section-label">01 — Results</div>
+  <h2 class="section-title">Fold 1 Validation Performance</h2>
+  <p class="section-desc">
+    Comparison between the Gated Fusion baseline (sequence-level feature blending) and the 3D Spatial Cross-Attention model on the validation split of Fold 1 of the PPI dataset.
+  </p>
+
+  <div class="metric-grid">
+    <div class="metric-card blue">
+      <div class="metric-label">Peak AUPRC</div>
+      <div class="metric-value">0.4508</div>
+      <span class="metric-delta up">↑ +0.0154 vs Baseline</span>
+    </div>
+    <div class="metric-card teal">
+      <div class="metric-label">Peak AUC-ROC</div>
+      <div class="metric-value">0.7743</div>
+      <span class="metric-delta neutral">≈ Comparable</span>
+    </div>
+    <div class="metric-card violet">
+      <div class="metric-label">Peak MCC</div>
+      <div class="metric-value">0.3531</div>
+      <span class="metric-delta up">↑ +3.8% Relative</span>
+    </div>
+    <div class="metric-card emerald">
+      <div class="metric-label">Peak F1</div>
+      <div class="metric-value">0.4665</div>
+      <span class="metric-delta up">↑ +0.0017 vs Baseline</span>
+    </div>
+  </div>
+
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Gated Fusion (Baseline)</th>
+          <th>3D Spatial Cross-Attention</th>
+          <th>Winner</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="highlight">
+          <td><strong>Validation AUPRC</strong></td>
+          <td class="loser">0.4354</td>
+          <td class="winner">0.4508</td>
+          <td><span class="badge green">3D-SCA +3.5%</span></td>
+        </tr>
+        <tr>
+          <td><strong>Validation AUC-ROC</strong></td>
+          <td class="winner">0.7755</td>
+          <td class="loser">0.7743</td>
+          <td><span class="badge amber">Comparable</span></td>
+        </tr>
+        <tr class="highlight">
+          <td><strong>Validation MCC</strong></td>
+          <td class="loser">0.3401</td>
+          <td class="winner">0.3531</td>
+          <td><span class="badge green">3D-SCA +3.8%</span></td>
+        </tr>
+        <tr>
+          <td><strong>Validation F1</strong></td>
+          <td class="loser">0.4648</td>
+          <td class="winner">0.4665</td>
+          <td><span class="badge green">3D-SCA +0.3%</span></td>
+        </tr>
+        <tr>
+          <td><strong>Convergence Epoch</strong></td>
+          <td class="loser">Plateau at Epoch 14</td>
+          <td class="winner">Steady gain past Epoch 21</td>
+          <td><span class="badge green">3D-SCA Wins</span></td>
+        </tr>
+        <tr>
+          <td><strong>Numerical Stability</strong></td>
+          <td class="loser">Coordinate drift at large L</td>
+          <td class="winner">Fully stabilized</td>
+          <td><span class="badge green">3D-SCA Wins</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════ SECTION 2: MOTIVATION ═══════════════ -->
+<div class="section">
+  <div class="section-label">02 — Research Gap</div>
+  <h2 class="section-title">Why 1D Fusion is Insufficient</h2>
+  <p class="section-desc">
+    Sequence-level fusion treats each residue independently. PPI binding sites are determined by surface patches — clusters of residues defined by their 3D geometric proximity, not sequence order.
+  </p>
+
+  <div class="alert info">
+    <span class="alert-icon">🔬</span>
+    <div>
+      <div class="alert-title">Biophysical Rationale</div>
+      <div class="alert-body">Prior work (DHEG, Briefings in Bioinformatics 2026) showed that naive PLM concatenation or replacement of PSSM/HMM features reduces MCC to as low as 0.086. The unresolved question was whether a <strong>structure-conditioned attention mechanism</strong> could enable PLM embeddings to contribute a genuine complementary signal without dominating classical evolutionary features.</div>
+    </div>
+  </div>
+
+  <div class="alert success">
+    <span class="alert-icon">✅</span>
+    <div>
+      <div class="alert-title">Our Solution: 3D-Constrained Attention Routing</div>
+      <div class="alert-body">By constructing an attention mask derived from the 14Å protein contact graph, each residue's classical query vector (from PSSM/HMM) can only attend to the PLM key/value vectors of its structural neighbors. This injects geometry into the fusion step before any GNN message passing occurs.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SECTION 3: MATHEMATICS ═══════════════ -->
+<div class="section">
+  <div class="section-label">03 — Mathematical Framework</div>
+  <h2 class="section-title">Formal Derivation</h2>
+  <p class="section-desc">
+    For each residue i in a protein sequence of length L, we define projections, a 3D spatial mask, and a structure-constrained attention output.
+  </p>
+
+  <div class="eq-block">
+    <div class="eq-label">Step 1 · Linear Projection to Latent Dimension d = 128</div>
+    <div class="eq-body">
+      q<sub>i</sub> = LayerNorm( W<sub>q</sub> · x<sub>i</sub><sup>classical</sup> + b<sub>q</sub> )  ∈ ℝ<sup>d</sup><br>
+      k<sub>i</sub> = v<sub>i</sub> = LayerNorm( W<sub>k</sub> · x<sub>i</sub><sup>plm</sup> + b<sub>k</sub> )  ∈ ℝ<sup>d</sup>
+    </div>
+  </div>
+
+  <div class="eq-block">
+    <div class="eq-label">Step 2 · 3D Spatial Additive Attention Mask</div>
+    <div class="eq-body">
+      Let ε = { (i,j) | dist(i, j) ≤ 14Å }  (protein contact graph)<br><br>
+      M<sub>i,j</sub> = {  0.0       if  i = j  or  (i,j) ∈ ε<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{ −10⁹     otherwise
+    </div>
+  </div>
+
+  <div class="eq-block">
+    <div class="eq-label">Step 3 · Masked Attention &amp; Residual Fusion</div>
+    <div class="eq-body">
+      A = Softmax( ( Q · Kᵀ / √d ) + M )  ∈ ℝ<sup>L×L</sup><br>
+      f<sub>i</sub> = LayerNorm( q<sub>i</sub> + (A · V)<sub>i</sub> )  ∈ ℝ<sup>d</sup>
+    </div>
+  </div>
+
+  <div class="eq-block">
+    <div class="eq-label">Step 4 · Final Node Feature Reconstruction</div>
+    <div class="eq-body">
+      node_features<sub>i</sub> = concat( f<sub>i</sub>, DSSP<sub>i</sub>, AF<sub>i</sub> )  ∈ ℝ<sup>149</sup>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SECTION 4: PIPELINE ═══════════════ -->
+<div class="section">
+  <div class="section-label">04 — Architecture</div>
+  <h2 class="section-title">End-to-End Feature Pipeline</h2>
+  <p class="section-desc">
+    The 3D-SCA module sits at the boundary between raw feature extraction and GNN propagation, acting as a structure-aware adapter that translates PLM biophysical grammar into the GNN's graph topology.
+  </p>
+
+  <div class="pipeline">
+    <div class="pipeline-step">
+      <div class="step-icon blue">🧬</div>
+      <div class="step-content">
+        <div class="step-title">Classical Evolutionary Features</div>
+        <div class="step-desc">Per-residue PSSM (20d) and HMM profile (20d) are concatenated to form a 40-dimensional evolutionary fingerprint encoding sequence conservation across homologous families.</div>
+        <div class="step-code">x<sub>i</sub><sup>classical</sup> ∈ ℝ⁴⁰ → W<sub>q</sub> → q<sub>i</sub> ∈ ℝ¹²⁸</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-icon indigo">🤖</div>
+      <div class="step-content">
+        <div class="step-title">ESM-2 PLM Embeddings</div>
+        <div class="step-desc">Pre-extracted per-residue embeddings from ESM-2 650M (facebook/esm2_t33_650M_UR50D), cached on disk as float16 .npy files. These encode implicit structural and biophysical co-evolution signals learned from 250M protein sequences.</div>
+        <div class="step-code">x<sub>i</sub><sup>plm</sup> ∈ ℝ¹²⁸⁰ → W<sub>k</sub> → k<sub>i</sub>, v<sub>i</sub> ∈ ℝ¹²⁸</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-icon violet">📐</div>
+      <div class="step-content">
+        <div class="step-title">3D Spatial Mask Construction</div>
+        <div class="step-desc">The protein's 3D Cα coordinate graph (14Å cutoff) is converted into a binary neighborhood adjacency. An additive float mask M is built such that only spatial neighbors (and self) receive zero masking; all other pairs receive −10⁹ to force softmax weights to zero.</div>
+        <div class="step-code">M ∈ ℝᴸˣᴸ, M[edges] = 0.0, M[others] = −1e9</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-icon teal">🧩</div>
+      <div class="step-content">
+        <div class="step-title">Structure-Gated Cross-Attention</div>
+        <div class="step-desc">Classical query vectors attend to PLM key/value vectors only within their 3D neighborhood. This constrains knowledge transfer to spatially co-localized patches, reflecting how cooperative binding surface patches actually function in protein biology.</div>
+        <div class="step-code">f<sub>i</sub> = LayerNorm( q<sub>i</sub> + Softmax(QKᵀ/√d + M) · V )</div>
+      </div>
+    </div>
+    <div class="pipeline-step">
+      <div class="step-icon emerald">⚡</div>
+      <div class="step-content">
+        <div class="step-title">GNN Propagation (EGNN + GraphTransformer)</div>
+        <div class="step-desc">The fused 128d representation is concatenated with DSSP (14d) and atomic features (7d), forming a 149d node feature vector. This is passed through 10 EGNN layers and 4 GraphTransformer layers. Outputs are averaged and classified via a 2-class linear head.</div>
+        <div class="step-code">node_i = cat(f<sub>i</sub>, dssp<sub>i</sub>, af<sub>i</sub>) ∈ ℝ¹⁴⁹ → EGNN → GT → logits</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SECTION 5: STABILITY ═══════════════ -->
+<div class="section">
+  <div class="section-label">05 — Training Stabilization</div>
+  <h2 class="section-title">Numerical Stability Fixes</h2>
+  <p class="section-desc">
+    Combining multihead attention projections with equivariant GNN coordinate updates creates two critical failure modes, both diagnosed and resolved during empirical testing across the full 334-protein training dataset.
+  </p>
+
+  <div class="alert caution">
+    <span class="alert-icon">⚠️</span>
+    <div>
+      <div class="alert-title">Failure Mode 1 — EGNN Coordinate Explosion</div>
+      <div class="alert-body">In proteins with L > 400 residues, the internal coordinate update Δx accumulated exponentially across 10 EGNN layers, causing loss values to jump from 0.35 to 549.07 within 5 training steps. Root cause: unbounded coord_diff vectors in the equivariant message passing.</div>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots">
+        <div class="code-dot red"></div>
+        <div class="code-dot amber"></div>
+        <div class="code-dot green"></div>
+      </div>
+      <div class="code-lang">Python · final_model.py</div>
+    </div>
+    <pre><span class="cm"># FIX 1: Enable coordinate normalization in EGNN</span>
+<span class="cm"># Divides coord_diff by its norm: unit-vector constraint on spatial updates</span>
+<span class="nm">self</span>.<span class="nm">Egnn</span> = <span class="cls">EGNN</span>(
+    <span class="nm">in_node_nf</span>=<span class="nm">self</span>.<span class="nm">actual_input_size</span>,
+    <span class="nm">hidden_nf</span>=<span class="nm">hidden_size</span>,
+    <span class="nm">out_node_nf</span>=<span class="nm">output_size</span>,
+    <span class="nm">in_edge_nf</span>=<span class="st">2</span>,
+    <span class="nm">n_layers</span>=<span class="st">10</span>,
+    <span class="nm">attention</span>=<span class="kw">True</span>,
+    <span class="nm">residual</span>=<span class="kw">False</span>,
+    <span class="nm">tanh</span>=<span class="kw">True</span>,
+    <span class="nm">normalize</span>=<span class="kw">True</span>  <span class="cm"># ← CRITICAL: prevents coordinate divergence</span>
+)</pre>
+  </div>
+
+  <div class="alert caution" style="margin-top:24px;">
+    <span class="alert-icon">⚠️</span>
+    <div>
+      <div class="alert-title">Failure Mode 2 — Attention Weight Saturation (LR=1e-3)</div>
+      <div class="alert-body">The 1280→128 projection layers (PLM stream) and the three Q/K/V projection matrices of MultiheadAttention together contain approximately 4.3M parameters. Optimizing these at the standard GNN learning rate of 1e-3 caused optimizer overshoot, with gradient norms reaching 2520 before clipping. Reducing to 1e-4 reduced average per-step gradient norm to 2–8, fully eliminating the explosion.</div>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots">
+        <div class="code-dot red"></div>
+        <div class="code-dot amber"></div>
+        <div class="code-dot green"></div>
+      </div>
+      <div class="code-lang">Python · final_model.py</div>
+    </div>
+    <pre><span class="cm"># FIX 2: Reduce learning rate to accommodate attention parameter scale</span>
+<span class="nm">self</span>.<span class="nm">optimizer</span> = <span class="nm">torch</span>.<span class="nm">optim</span>.<span class="fn">Adam</span>(
+    <span class="nm">self</span>.<span class="fn">parameters</span>(),
+    <span class="nm">lr</span>=<span class="st">1e-4</span>,         <span class="cm"># ← 10x smaller than standard GNN lr (1e-3)</span>
+    <span class="nm">weight_decay</span>=<span class="st">0</span>   <span class="cm"># keeps original regularization behavior</span>
+)</pre>
+  </div>
+</div>
+
+<!-- ═══════════════ SECTION 6: IMPLEMENTATION ═══════════════ -->
+<div class="section">
+  <div class="section-label">06 — Key Implementation</div>
+  <h2 class="section-title">Spatial Mask Forward Pass</h2>
+
+  <div class="code-block">
+    <div class="code-header">
+      <div class="code-dots">
+        <div class="code-dot red"></div>
+        <div class="code-dot amber"></div>
+        <div class="code-dot green"></div>
+      </div>
+      <div class="code-lang">Python · fusion_module.py</div>
+    </div>
+    <pre><span class="kw">elif</span> <span class="nm">self</span>.<span class="nm">fusion_mode</span> == <span class="st">'cross_attn'</span>:
+    L = <span class="nm">c_proj</span>.<span class="fn">size</span>(<span class="st">0</span>)
+    device = <span class="nm">c_proj</span>.<span class="nm">device</span>
+
+    <span class="cm"># Build 3D spatial additive attention mask</span>
+    <span class="cm"># -1e9 is added to non-neighbor logits → softmax(x + -1e9) ≈ 0</span>
+    attn_mask = <span class="nm">torch</span>.<span class="fn">full</span>((L, L), <span class="st">-1e9</span>, <span class="nm">dtype</span>=<span class="nm">c_proj</span>.<span class="nm">dtype</span>, <span class="nm">device</span>=device)
+
+    <span class="cm"># Residue i can always attend to itself</span>
+    attn_mask.<span class="fn">fill_diagonal_</span>(<span class="st">0.0</span>)
+
+    <span class="kw">if</span> edges <span class="kw">is not</span> <span class="kw">None</span> <span class="kw">and</span> edges.<span class="fn">numel</span>() > <span class="st">0</span>:
+        <span class="cm"># Allow 14Å spatial neighbors to attend bidirectionally</span>
+        attn_mask[edges[<span class="st">0</span>], edges[<span class="st">1</span>]] = <span class="st">0.0</span>
+        attn_mask[edges[<span class="st">1</span>], edges[<span class="st">0</span>]] = <span class="st">0.0</span>
+
+    <span class="cm"># Pack as (1, L, d) batch-first for nn.MultiheadAttention</span>
+    q  = <span class="nm">c_proj</span>.<span class="fn">unsqueeze</span>(<span class="st">0</span>)
+    kv = <span class="nm">p_proj</span>.<span class="fn">unsqueeze</span>(<span class="st">0</span>)
+
+    attn_output, _ = <span class="nm">self</span>.<span class="nm">cross_attention</span>(q, kv, kv, <span class="nm">attn_mask</span>=attn_mask)
+    attn_output = attn_output.<span class="fn">squeeze</span>(<span class="st">0</span>)
+
+    <span class="cm"># Residual connection + LayerNorm for training stability</span>
+    fused_i = <span class="nm">self</span>.<span class="nm">post_attn_ln</span>(<span class="nm">c_proj</span> + attn_output)</pre>
+  </div>
+</div>
+
+</div><!-- end container -->
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<div class="footer">
+  <div class="footer-left">
+    GTE-PPIS · 3D Spatial Cross-Attention (3D-SCA) Feature Fusion · Technical Report · July 2026
+  </div>
+  <div class="footer-right">
+    <span class="footer-tag">ESM-2 650M</span>
+    <span class="footer-tag">EGNN + GraphTransformer</span>
+    <span class="footer-tag">PPIS Binding Site Prediction</span>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,231 @@
+Script started on 2026-07-30 12:55:02+05:30 [TERM="xterm-256color" TTY="/dev/pts/4" COLUMNS="133" LINES="56"]
+[?2004h]0;cse-sdpl@cse-sdpl-HP-Z4-G5-Workstation-Desktop-PC: ~/gte-zip[01;32mcse-sdpl@cse-sdpl-HP-Z4-G5-Workstation-Desktop-PC[00m:[01;34m~/gte-zip[00m$ ./venv/bin/python train.py --fusion_mode gated --d_proj 128exit[K()[K./venv/bin/python train.py --fusion_mode gated --d_proj 128exit[K()ls train.py[Kscript train.pyource ./venv/bin/activate[9P./venv/bin/pythonclear[K./venv/bin/python train.py --fusion_mode gated --d_proj 128exit[Kpython train.py --fusion_mode gated --d_proj 128
+[?2004lRandom seed: 2024
+The base Model type: AGAT
+Add node features: all
+Map cutoff: 14
+Use edge features or not while using GAT model: True
+The parameter of normalizing the distance: 15
+Feature dim: 61
+Hidden dim: 256
+Layer: 8
+Dropout: 0.1
+Alpha: 0.7
+Lambda: 1.5
+Learning rate: 0.001
+Training epochs: 5
+
+
+
+========== Fold 1 ==========
+Train on 267 samples, validate on 67 samples
+
+========== Train epoch 1 ==========
+========== Evaluate Train set ==========
+Train loss:  0.551832845874047
+Train binary acc:  0.6571418050594691
+Train AUC:  0.5156869012027537
+Train AUPRC:  0.1530038858835527
+========== Evaluate Valid set ==========
+Valid loss:  0.9803914000738913
+Valid binary acc:  0.6752984698167143
+Valid precision:  0.17618384401114207
+Valid recall:  0.25274725274725274
+Valid f1:  0.20763233483791546
+Valid AUC:  0.5127484474684232
+Valid AUPRC:  0.16622194654027764
+Valid mcc:  0.01185825063136303
+
+========== Train epoch 2 ==========
+========== Evaluate Train set ==========
+Train loss:  0.5253552313377795
+Train binary acc:  0.8465588982582759
+Train AUC:  0.5187359400112714
+Train AUPRC:  0.16898622993839144
+========== Evaluate Valid set ==========
+Valid loss:  0.5093068576125956
+Valid binary acc:  0.8316798385740709
+Valid precision:  0.0
+Valid recall:  0.0
+Valid f1:  0.0
+Valid AUC:  0.5307022890170888
+Valid AUPRC:  0.19241574199211142
+Valid mcc:  0.0
+
+========== Train epoch 3 ==========
+========== Evaluate Train set ==========
+Train loss:  0.5097432926241379
+Train binary acc:  0.8465588982582759
+Train AUC:  0.5096940317849823
+Train AUPRC:  0.16475780920370983
+========== Evaluate Valid set ==========
+Valid loss:  0.5107921097260802
+Valid binary acc:  0.8316798385740709
+Valid precision:  0.0
+Valid recall:  0.0
+Valid f1:  0.0
+Valid AUC:  0.5336109755590144
+Valid AUPRC:  0.17239840498734166
+Valid mcc:  0.0
+
+========== Train epoch 4 ==========
+========== Evaluate Train set ==========
+Train loss:  0.7675524984071317
+Train binary acc:  0.8465588982582759
+Train AUC:  0.536303394554012
+Train AUPRC:  0.18346520312947834
+========== Evaluate Valid set ==========
+Valid loss:  0.51765227851583
+Valid binary acc:  0.8316798385740709
+Valid precision:  0.0
+Valid recall:  0.0
+Valid f1:  0.0
+Valid AUC:  0.5228132411462375
+Valid AUPRC:  0.18666252502806088
+Valid mcc:  0.0
+
+========== Train epoch 5 ==========
+========== Evaluate Train set ==========
+Train loss:  0.5047860513912158
+Train binary acc:  0.8465588982582759
+Train AUC:  0.5019989570908272
+Train AUPRC:  0.15881894512221642
+========== Evaluate Valid set ==========
+Valid loss:  0.5176213852949997
+Valid binary acc:  0.8316798385740709
+Valid precision:  0.0
+Valid recall:  0.0
+Valid f1:  0.0
+Valid AUC:  0.5315463701280523
+Valid AUPRC:  0.18820467626361992
+Valid mcc:  0.0
+
+
+========== Fold 2 ==========
+Train on 267 samples, validate on 67 samples
+
+========== Train epoch 1 ==========
+========== Evaluate Train set ==========
+Train loss:  0.9536834243085054
+Train binary acc:  0.8427486214475765
+Train AUC:  0.608466500696945
+Train AUPRC:  0.2133849033954284
+========== Evaluate Valid set ==========
+Valid loss:  0.4889508621461356
+Valid binary acc:  0.8479988843954818
+Valid precision:  0.0
+Valid recall:  0.0
+Valid f1:  0.0
+Valid AUC:  0.6493148119650769
+Valid AUPRC:  0.24571444299498224
+Valid mcc:  0.0
+
+========== Train epoch 2 ==========
+========== Evaluate Train set ==========
+Train loss:  5.443229366470589
+Train binary acc:  0.8427486214475765
+Train AUC:  0.45118525517452013
+Train AUPRC:  0.140658170844595
+========== Evaluate Valid set ==========
+Valid loss:  0.4996546084311471
+Valid binary acc:  0.8479988843954818
+Valid precision:  0.0
+Valid recall:  0.0
+Valid f1:  0.0
+Valid AUC:  0.43315698694535093
+Valid AUPRC:  0.13454770733905486
+Valid mcc:  0.0
+
+========== Train epoch 3 ==========
+========== Evaluate Train set ==========
+Train loss:  0.825244073787432
+Train binary acc:  0.8427486214475765
+Train AUC:  0.5073217926480305
+Train AUPRC:  0.1672303865009812
+========== Evaluate Valid set ==========
+Valid loss:  0.49755205147301973
+Valid binary acc:  0.8479988843954818
+Valid precision:  0.0
+Valid recall:  0.0
+Valid f1:  0.0
+Valid AUC:  0.4975126314630169
+Valid AUPRC:  0.15242729439219746
+Valid mcc:  0.0
+
+========== Train epoch 4 ==========
+========== Evaluate Train set ==========
+Train loss:  1.7133510617839263
+Train binary acc:  0.8427486214475765
+Train AUC:  0.6535406490614442
+Train AUPRC:  0.2325941656117782
+========== Evaluate Valid set ==========
+Valid loss:  0.4999446728781088
+Valid binary acc:  0.8479988843954818
+Valid precision:  0.0
+Valid recall:  0.0
+Valid f1:  0.0
+Valid AUC:  0.6349072875507861
+Valid AUPRC:  0.2211155403605055
+Valid mcc:  0.0
+
+========== Train epoch 5 ==========
+========== Evaluate Train set ==========
+Train loss:  0.5122625155283718
+Train binary acc:  0.8427486214475765
+Train AUC:  0.4963471878555763
+Train AUPRC:  0.16212666560027766
+========== Evaluate Valid set ==========
+Valid loss:  0.49999143072028657
+Valid binary acc:  0.8479988843954818
+Valid precision:  0.0
+Valid recall:  0.0
+Valid f1:  0.0
+Valid AUC:  0.4929635320723746
+Valid AUPRC:  0.16551877913562987
+Valid mcc:  0.0
+
+
+========== Fold 3 ==========
+Train on 267 samples, validate on 67 samples
+
+========== Train epoch 1 ==========
+========== Evaluate Train set ==========
+Train loss:  0.902864229087526
+Train binary acc:  0.8484301498741932
+Train AUC:  0.6535835259579373
+Train AUPRC:  0.22399380635551108
+========== Evaluate Valid set ==========
+Valid loss:  0.5276869851261822
+Valid binary acc:  0.8219503608519627
+Valid precision:  0.0
+Valid recall:  0.0
+Valid f1:  0.0
+Valid AUC:  0.6699661516502824
+Valid AUPRC:  0.27232645656891685
+Valid mcc:  0.0
+
+========== Train epoch 2 ==========
+^CTraceback (most recent call last):
+  File "/home/cse-sdpl/gte-zip/train.py", line 421, in <module>
+    main()
+  File "/home/cse-sdpl/gte-zip/train.py", line 406, in main
+    aver_epoch = cross_validation(train_dataframe, fold_number=5)
+  File "/home/cse-sdpl/gte-zip/train.py", line 319, in cross_validation
+    best_epoch, valid_auc, valid_aupr = train(model, train_dataframe, valid_dataframe, fold + 1)
+  File "/home/cse-sdpl/gte-zip/train.py", line 231, in train
+    epoch_loss_train_avg = train_one_epoch(model, train_loader)
+  File "/home/cse-sdpl/gte-zip/train.py", line 112, in train_one_epoch
+    model.optimizer.step()
+  File "/home/cse-sdpl/gte-zip/venv/lib/python3.10/site-packages/torch/optim/optimizer.py", line 385, in wrapper
+    out = func(*args, **kwargs)
+  File "/home/cse-sdpl/gte-zip/venv/lib/python3.10/site-packages/torch/optim/optimizer.py", line 76, in _use_grad
+    ret = func(self, *args, **kwargs)
+  File "/home/cse-sdpl/gte-zip/venv/lib/python3.10/site-packages/torch/optim/adam.py", line 166, in step
+    adam(
+  File "/home/cse-sdpl/gte-zip/venv/lib/python3.10/site-packages/torch/optim/adam.py", line 316, in adam
+    func(params,
+  File "/home/cse-sdpl/gte-zip/venv/lib/python3.10/site-packages/torch/optim/adam.py", line 583, in _multi_tensor_adam
+    torch._foreach_addcdiv_(device_params, device_exp_avgs, exp_avg_sq_sqrt, step_size)
+KeyboardInterrupt
+
+[?
