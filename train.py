@@ -35,12 +35,14 @@ def compute_class_weights(dataframe):
 parser = argparse.ArgumentParser()
 parser.add_argument('--fusion_mode', type=str, default='none', choices=['none', 'concat', 'gated', 'cross_attn'])
 parser.add_argument('--d_proj', type=int, default=128)
+parser.add_argument('--use_curriculum', action='store_true', help="Enable Focal-Gate Coupled Curriculum Learning")
 parser.add_argument('--model_time', type=str, default=None)
 parser.add_argument('--smoke_test', action='store_true')
 args = parser.parse_args()
 
 FUSION_MODE = args.fusion_mode
 D_PROJ = args.d_proj
+USE_CURRICULUM = args.use_curriculum
 model_time = args.model_time
 
 if args.smoke_test:
@@ -82,7 +84,7 @@ Log_path = "./Log/"
 
 
 
-def train_one_epoch(model, data_loader):
+def train_one_epoch(model, data_loader, epoch=0):
     epoch_loss_train = 0.0
     n = 0
     for data in data_loader:
@@ -118,8 +120,8 @@ def train_one_epoch(model, data_loader):
 
         y_pred = model(node_features, xyz_feats, edges, edge_att, edge_feat, adj_matrix, plm_features=plm_features)
 
-        # calculate loss
-        loss = model.criterion(y_pred, y_true)
+        # calculate loss (passing gate_val and current epoch for curriculum learning)
+        loss = model.criterion(y_pred, y_true, gate_val=model.last_gate_val, epoch=epoch)
 
         # backward gradient
         loss.backward()
@@ -275,7 +277,7 @@ def train(model, train_dataframe, valid_dataframe, fold=0):
         print("\n========== Train epoch " + str(epoch + 1) + " ==========")
         model.train()
 
-        epoch_loss_train_avg = train_one_epoch(model, train_loader)
+        epoch_loss_train_avg = train_one_epoch(model, train_loader, epoch=epoch)
         print("========== Evaluate Train set ==========")
         _, train_true, train_pred, _ = evaluate(model, train_loader)
         # Use best-threshold search (not hardcoded 0.5) so metrics are meaningful
@@ -288,6 +290,8 @@ def train(model, train_dataframe, valid_dataframe, fold=0):
         print("Train F1: ", result_train['f1'])
         print("Train best threshold: ", result_train['threshold'])
         print("Current LR: ", model.optimizer.param_groups[0]['lr'])
+        if USE_CURRICULUM:
+            print("(Note: Train loss is curriculum-weighted; Valid loss is standard focal loss — not directly comparable)")
 
         print("========== Evaluate Valid set ==========")
         epoch_loss_valid_avg, valid_true, valid_pred, _ = evaluate(model, valid_loader)
@@ -348,7 +352,8 @@ def cross_validation(all_dataframe, fold_number=5):
         valid_dataframe = all_dataframe.iloc[2:4]
         class_weights = compute_class_weights(train_dataframe)
         model = FinalModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
-                           fusion_mode=FUSION_MODE, d_proj=D_PROJ, class_weights=class_weights)
+                           fusion_mode=FUSION_MODE, d_proj=D_PROJ, class_weights=class_weights,
+                           use_curriculum=USE_CURRICULUM)
         if torch.cuda.is_available():
             model.cuda()
         best_epoch, valid_auc, valid_aupr = train(model, train_dataframe, valid_dataframe, fold=1)
@@ -371,7 +376,8 @@ def cross_validation(all_dataframe, fold_number=5):
         class_weights = compute_class_weights(train_dataframe)
 
         model = FinalModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
-                           fusion_mode=FUSION_MODE, d_proj=D_PROJ, class_weights=class_weights)
+                           fusion_mode=FUSION_MODE, d_proj=D_PROJ, class_weights=class_weights,
+                           use_curriculum=USE_CURRICULUM)
 
         if torch.cuda.is_available():
             model.cuda()
@@ -402,7 +408,8 @@ def train_full_model(all_dataframe, aver_epoch):
     # Compute class weights from the full training set
     class_weights = compute_class_weights(all_dataframe)
     model = FinalModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
-                       fusion_mode=FUSION_MODE, d_proj=D_PROJ, class_weights=class_weights)
+                       fusion_mode=FUSION_MODE, d_proj=D_PROJ, class_weights=class_weights,
+                       use_curriculum=USE_CURRICULUM)
     if torch.cuda.is_available():
         model.cuda()
 

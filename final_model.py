@@ -11,6 +11,7 @@ from fusion_module import FeatureFusionModule
 
 class FocalLoss(nn.Module):
     """Focal Loss for imbalanced binary classification in bioinformatics.
+    Optionally coupled with Focal-Gate Curriculum Learning (FG-Curriculum).
 
     Reference: Lin et al. (2017) 'Focal Loss for Dense Object Detection'.
     Widely adopted in PPI binding-site prediction to handle ~5:1 neg:pos imbalance.
@@ -21,13 +22,18 @@ class FocalLoss(nn.Module):
 
     class_weights: optional per-class weight tensor [w_neg, w_pos], applied before
       the focal term — combines class-frequency balancing with hard-sample focusing.
+
+    use_curriculum: when True, modulates per-residue loss by gate uncertainty U_i = 1 - |2*g_i - 1|
+      scaled by training epoch pacing p_epoch = min(1.0, (epoch + 1) / warmup_epochs).
     """
-    def __init__(self, gamma=2.0, class_weights=None):
+    def __init__(self, gamma=2.0, class_weights=None, use_curriculum=False, warmup_epochs=15):
         super().__init__()
         self.gamma = gamma
         self.class_weights = class_weights  # shape [C]
+        self.use_curriculum = use_curriculum
+        self.warmup_epochs = warmup_epochs
 
-    def forward(self, inputs, targets):
+    def forward(self, inputs, targets, gate_val=None, epoch=0):
         # inputs: (N, C) logits; targets: (N,) long
         # Per-sample cross-entropy loss (no reduction) with optional class weights
         ce = F.cross_entropy(inputs, targets, weight=self.class_weights, reduction='none')
@@ -35,14 +41,36 @@ class FocalLoss(nn.Module):
         p_t = torch.exp(-ce)
         # Focal weight: (1 - p_t)^gamma — approaches 0 for easy samples
         focal_loss = ((1 - p_t) ** self.gamma) * ce
-        return focal_loss.mean()
+
+        if self.use_curriculum and gate_val is not None:
+            # Gate uncertainty U_i in [0, 1]: 1 when g_i=0.5 (uncertain), 0 when g_i=0 or 1 (certain)
+            # CRITICAL: .detach() prevents gradients from flowing back through the curriculum
+            # weight into the gate network. Without this, the gate learns to minimize uncertainty
+            # as an unintended auxiliary objective, corrupting the learned representations.
+            g = gate_val.detach().squeeze()
+            U = 1.0 - torch.abs(2.0 * g - 1.0)
+
+            # Pacing parameter p_epoch in [0, 1]
+            p_epoch = min(1.0, float(epoch + 1) / float(self.warmup_epochs))
+
+            # Curriculum weight w_i: early in training, down-weight uncertain residues;
+            # as epoch -> warmup_epochs, w_i -> 1.0 for all residues.
+            w = 1.0 - (1.0 - p_epoch) * U
+
+            return (w * focal_loss).sum() / (w.sum() + 1e-8)
+        else:
+            return focal_loss.mean()
 
 class FinalModel(nn.Module):
     def __init__(self, input_size, hidden_size, fliter_size, output_size, dropout_rate, n_layers,
-                 fusion_mode='none', d_proj=128, class_weights=None):
+                 fusion_mode='none', d_proj=128, class_weights=None, use_curriculum=False, warmup_epochs=15):
         super(FinalModel, self).__init__()
         self.fusion_mode = fusion_mode
         self.d_proj = d_proj
+        self.use_curriculum = use_curriculum
+        if use_curriculum and fusion_mode != 'gated':
+            print("WARNING: --use_curriculum only has effect with --fusion_mode gated. "
+                  f"Current fusion_mode='{fusion_mode}' — curriculum will be silently ignored.")
 
         # Calculate actual input dimension for EGNN and GT branches
         if fusion_mode == 'none':
@@ -70,7 +98,8 @@ class FinalModel(nn.Module):
         if class_weights is not None:
             device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
             class_weights = class_weights.to(device)
-        self.criterion = FocalLoss(gamma=2.0, class_weights=class_weights)
+        self.criterion = FocalLoss(gamma=2.0, class_weights=class_weights,
+                                   use_curriculum=use_curriculum, warmup_epochs=warmup_epochs)
 
         # Adam optimizer with stabilized learning rate (1e-4) for attention layers
         self.optimizer = torch.optim.Adam(self.parameters(), lr=1e-4, weight_decay=0)
