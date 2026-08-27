@@ -11,7 +11,7 @@ from final_model import *
 from GraphTransformer_Block import *
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--fusion_mode', type=str, default='none', choices=['none', 'concat', 'gated', 'cross_attn'])
+parser.add_argument('--fusion_mode', type=str, default='none', choices=['none', 'concat', 'gated', 'cross_attn', 'multistream'])
 parser.add_argument('--d_proj', type=int, default=128)
 parser.add_argument('--model_dir', type=str, required=True, help="Directory containing the model checkpoints")
 parser.add_argument('--smoke_test', action='store_true')
@@ -169,6 +169,7 @@ def test(test_dataframe, psepos_path):
                 writer.writerows(gate_records)
             print(f"Saved {len(gate_records)} gate records to {csv_path}")
 
+        test_pred = np.nan_to_num(test_pred, nan=0.0)
         result_test = analysis(test_true, test_pred)
 
         for key in all_metrics:
@@ -200,6 +201,8 @@ def test_one_dataset(dataset, psepos_path):
         labels.append(item[1])
     test_dic = {"ID": IDs, "sequence": sequences, "label": labels}
     test_dataframe = pd.DataFrame(test_dic)
+
+    # --- Per-fold evaluation (existing behavior) ---
     all_metrics = test(test_dataframe, psepos_path)
 
     average_metrics = {key: np.mean(values[:5]) for key, values in all_metrics.items()}
@@ -212,6 +215,109 @@ def test_one_dataset(dataset, psepos_path):
     print("Average MCC: ", average_metrics['mcc'])
     print("Average AUPRC: ", average_metrics['AUPRC'])
     print("Average threshold: ", average_metrics['threshold'])
+    print()
+
+    # --- Ensemble evaluation (average probabilities across folds) ---
+    ensemble_test(test_dataframe, psepos_path)
+
+
+def ensemble_test(test_dataframe, psepos_path):
+    """Ensemble prediction: average predicted probabilities across all fold models,
+    then compute metrics once on the averaged predictions.
+    This improves probability ranking quality (AUPRC) by smoothing per-fold noise."""
+    if args.smoke_test:
+        test_dataframe = test_dataframe.iloc[:2]
+
+    test_loader = DataLoader(dataset=ProDataset(dataframe=test_dataframe, psepos_path=psepos_path, fusion_mode=FUSION_MODE),
+                             batch_size=BATCH_SIZE, shuffle=False, num_workers=4, collate_fn=graph_collate)
+
+    # Collect per-protein predictions from each fold model
+    fold_predictions = {}  # model_name -> {protein_id: [prob_per_residue]}
+    fold_models = sorted([f for f in os.listdir(Model_Path) if f.endswith('.pkl') and f.startswith('Fold')])
+
+    if len(fold_models) < 2:
+        print("========== Ensemble: Skipped (need >= 2 fold models) ==========")
+        return
+
+    for model_name in fold_models:
+        model = FinalModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
+                           fusion_mode=FUSION_MODE, d_proj=D_PROJ)
+        if torch.cuda.is_available():
+            model.cuda()
+        model.load_state_dict(torch.load(Model_Path + model_name, map_location='cuda:0', weights_only=True))
+        model.eval()
+
+        pred_dict = {}
+        with torch.no_grad():
+            for data in test_loader:
+                sequence_names, _, labels, node_features, G_batch, adj_matrix, xyz_feats, edges, edge_att, edge_feat, plm_features = data
+                if torch.cuda.is_available():
+                    node_features = Variable(node_features.cuda().float())
+                    plm_features = Variable(plm_features.cuda().float())
+                    adj_matrix = Variable(adj_matrix.cuda())
+                    G_batch.edata['ex'] = Variable(G_batch.edata['ex'].float())
+                    G_batch = G_batch.to(torch.device('cuda:0'))
+                    xyz_feats = Variable(xyz_feats.cuda().float())
+                    edges = Variable(edges.cuda())
+                    edge_att = Variable(edge_att.cuda().float())
+                    edge_feat = Variable(edge_feat.cuda().float())
+                else:
+                    node_features = Variable(node_features.float())
+                    plm_features = Variable(plm_features.float())
+                    adj_matrix = Variable(adj_matrix)
+                    xyz_feats = Variable(xyz_feats.float())
+                    edges = Variable(edges)
+                    edge_att = Variable(edge_att.float())
+                    edge_feat = Variable(edge_feat.float())
+                    G_batch.edata['ex'] = Variable(G_batch.edata['ex'].float())
+
+                adj_matrix = torch.squeeze(adj_matrix)
+                y_pred = model(node_features, xyz_feats, edges, edge_att, edge_feat, adj_matrix, plm_features=plm_features)
+                softmax = torch.nn.Softmax(dim=1)
+                y_pred = softmax(y_pred)
+                probs = y_pred[:, 1].cpu().detach().numpy()
+                pred_dict[sequence_names[0]] = probs
+
+        fold_predictions[model_name] = pred_dict
+
+    # Average probabilities across folds for each protein
+    all_protein_ids = list(fold_predictions[fold_models[0]].keys())
+    ensemble_preds = []
+    ensemble_labels = []
+
+    # Build label lookup
+    label_dict = {}
+    for _, row in test_dataframe.iterrows():
+        label_dict[row['ID']] = np.array(row['label'])
+
+    for pid in all_protein_ids:
+        # Stack predictions from all folds: (n_folds, seq_len)
+        fold_probs = []
+        for model_name in fold_models:
+            if pid in fold_predictions[model_name]:
+                fold_probs.append(fold_predictions[model_name][pid])
+        if len(fold_probs) == 0:
+            continue
+        avg_probs = np.mean(fold_probs, axis=0)
+        ensemble_preds.extend(avg_probs)
+        ensemble_labels.extend(label_dict[pid][:len(avg_probs)])
+
+    ensemble_preds = np.array(ensemble_preds)
+    ensemble_labels = np.array(ensemble_labels)
+    ensemble_preds = np.nan_to_num(ensemble_preds, nan=0.0)
+
+    # Compute metrics on ensemble predictions
+    result = analysis(list(ensemble_labels), list(ensemble_preds))
+
+    print(f"========== Ensemble Results ({len(fold_models)} folds) ==========")
+    print("Ensemble binary acc: ", result['binary_acc'])
+    print("Ensemble precision: ", result['precision'])
+    print("Ensemble recall: ", result['recall'])
+    print("Ensemble f1: ", result['f1'])
+    print("Ensemble AUROC: ", result['AUC'])
+    print("Ensemble MCC: ", result['mcc'])
+    print("Ensemble AUPRC: ", result['AUPRC'])
+    print("Ensemble threshold: ", result['threshold'])
     print()
 
 

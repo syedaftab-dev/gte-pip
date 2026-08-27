@@ -88,7 +88,64 @@ class FeatureFusionModule(nn.Module):
             # Residual connection + LayerNorm
             fused_i = self.post_attn_ln(c_proj + attn_output)  # (L, d)
             
-        if torch.isnan(fused_i).any():
-            print("[DEBUG] NaN detected in fused_i output!")
-            
         return fused_i, gate_val
+
+
+class MultiStreamFusionModule(nn.Module):
+    """Multi-Stream Interaction Fusion Module (MSF).
+    Replaces scalar residue-level convex combination with a learned interaction MLP
+    and residual connection:
+        interaction = LayerNorm(Linear128->128(GELU(Linear256->128(concat(c_proj, p_proj)))))
+        fused = LayerNorm(interaction + c_proj + p_proj)
+    Provides an internal confidence signal for FG-Curriculum compatibility:
+        confidence = Sigmoid(Linear128->1(fused))
+    """
+    def __init__(self, d_proj=128):
+        super(MultiStreamFusionModule, self).__init__()
+        self.d_proj = d_proj
+        
+        # 1. Projections
+        self.classical_proj = nn.Linear(40, d_proj)
+        self.plm_proj       = nn.Linear(1280, d_proj)
+        
+        self.classical_ln   = nn.LayerNorm(d_proj)
+        self.plm_ln         = nn.LayerNorm(d_proj)
+        
+        # 2. Multi-Stream Interaction MLP
+        self.interaction_mlp = nn.Sequential(
+            nn.Linear(2 * d_proj, d_proj),
+            nn.GELU(),
+            nn.Linear(d_proj, d_proj),
+            nn.LayerNorm(d_proj)
+        )
+        
+        # 3. Residual LayerNorm
+        self.fused_ln = nn.LayerNorm(d_proj)
+        
+        # 4. Confidence Head for FG-Curriculum compatibility
+        self.confidence_head = nn.Linear(d_proj, 1)
+        
+        # Initialize projections
+        nn.init.xavier_uniform_(self.classical_proj.weight, gain=1.0)
+        nn.init.zeros_(self.classical_proj.bias)
+        nn.init.xavier_uniform_(self.plm_proj.weight, gain=1.0)
+        nn.init.zeros_(self.plm_proj.bias)
+        
+    def forward(self, classical_i, plm_i, edges=None):
+        # Project both streams to shared dim d
+        c_proj = self.classical_ln(self.classical_proj(classical_i.float()))  # (N, d)
+        p_proj = self.plm_ln(self.plm_proj(plm_i.float()))                  # (N, d)
+        
+        # Concatenate projected streams
+        concat_cp = torch.cat([c_proj, p_proj], dim=-1)  # (N, 2d)
+        
+        # Interaction MLP
+        interaction = self.interaction_mlp(concat_cp)   # (N, d)
+        
+        # Residual fusion
+        fused_i = self.fused_ln(interaction + c_proj + p_proj)  # (N, d)
+        
+        # Confidence signal for FG-Curriculum
+        confidence = torch.sigmoid(self.confidence_head(fused_i))  # (N, 1)
+        
+        return fused_i, confidence
