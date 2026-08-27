@@ -13,7 +13,15 @@ from GraphTransformer_Block import *
 parser = argparse.ArgumentParser()
 parser.add_argument('--fusion_mode', type=str, default='none', choices=['none', 'concat', 'gated', 'cross_attn', 'multistream'])
 parser.add_argument('--d_proj', type=int, default=128)
-parser.add_argument('--model_dir', type=str, required=True, help="Directory containing the model checkpoints")
+parser.add_argument('--model_dir', type=str, required=True, help="Directory containing the primary model checkpoints")
+# Cross-model ensemble: optionally blend a second model's predictions
+parser.add_argument('--model_dir2', type=str, default=None,
+                    help="(Optional) Second model dir for cross-model ensemble (e.g., baseline)")
+parser.add_argument('--fusion_mode2', type=str, default='none',
+                    choices=['none', 'concat', 'gated', 'cross_attn', 'multistream'],
+                    help="Fusion mode for the second model")
+parser.add_argument('--blend_alpha', type=float, default=0.5,
+                    help="Weight for model_dir1 predictions (model_dir2 gets 1-alpha). Default=0.5")
 parser.add_argument('--smoke_test', action='store_true')
 args = parser.parse_args()
 
@@ -220,6 +228,16 @@ def test_one_dataset(dataset, psepos_path):
     # --- Ensemble evaluation (average probabilities across folds) ---
     ensemble_test(test_dataframe, psepos_path)
 
+    # --- Cross-model ensemble (if second model dir provided) ---
+    if args.model_dir2:
+        cross_model_ensemble_test(
+            test_dataframe, psepos_path,
+            model_path2=args.model_dir2,
+            fusion_mode2=args.fusion_mode2,
+            d_proj2=args.d_proj,
+            alpha=args.blend_alpha
+        )
+
 
 def ensemble_test(test_dataframe, psepos_path):
     """Ensemble prediction: average predicted probabilities across all fold models,
@@ -319,6 +337,114 @@ def ensemble_test(test_dataframe, psepos_path):
     print("Ensemble AUPRC: ", result['AUPRC'])
     print("Ensemble threshold: ", result['threshold'])
     print()
+
+def cross_model_ensemble_test(test_dataframe, psepos_path, model_path2, fusion_mode2, d_proj2=128, alpha=0.5):
+    """Cross-model ensemble: blend residue-level probabilities from two model directories.
+
+    Strategy:
+      - Model 1 (primary, multistream): strong on UBtest (unbound generalization)
+      - Model 2 (secondary, baseline):  strong on Test_60/Test_315 (bound complexes)
+      - Blend: p_final = alpha * p_model1 + (1-alpha) * p_model2
+
+    The DataLoader uses FUSION_MODE (primary) so ESM-2 features are always loaded.
+    The secondary baseline model internally ignores ESM-2 (fusion_module is None).
+    """
+    if args.smoke_test:
+        test_dataframe = test_dataframe.iloc[:2]
+    if not model_path2.endswith('/'):
+        model_path2 += '/'
+
+    # Use primary model's fusion_mode for DataLoader so ESM-2 features are always loaded
+    data_fm = FUSION_MODE if FUSION_MODE != 'none' else fusion_mode2
+    test_loader = DataLoader(
+        dataset=ProDataset(dataframe=test_dataframe, psepos_path=psepos_path, fusion_mode=data_fm),
+        batch_size=BATCH_SIZE, shuffle=False, num_workers=4, collate_fn=graph_collate)
+
+    def collect_fold_preds(model_dir, fm, dp):
+        """Load all Fold*.pkl models from model_dir and collect per-protein predictions."""
+        fold_files = sorted([f for f in os.listdir(model_dir) if f.endswith('.pkl') and f.startswith('Fold')])
+        all_preds = {}  # model_name -> {prot_id: np.array of probs}
+        for fname in fold_files:
+            m = FinalModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
+                           fusion_mode=fm, d_proj=dp)
+            if torch.cuda.is_available():
+                m.cuda()
+            m.load_state_dict(torch.load(model_dir + fname,
+                              map_location='cuda:0' if torch.cuda.is_available() else 'cpu',
+                              weights_only=True))
+            m.eval()
+            pred_dict = {}
+            with torch.no_grad():
+                for data in test_loader:
+                    sequence_names, _, labels, node_features, G_batch, adj_matrix, \
+                        xyz_feats, edges, edge_att, edge_feat, plm_features = data
+                    if torch.cuda.is_available():
+                        node_features = Variable(node_features.cuda().float())
+                        plm_features  = Variable(plm_features.cuda().float())
+                        adj_matrix    = Variable(adj_matrix.cuda())
+                        G_batch.edata['ex'] = Variable(G_batch.edata['ex'].float())
+                        G_batch = G_batch.to(torch.device('cuda:0'))
+                        xyz_feats  = Variable(xyz_feats.cuda().float())
+                        edges      = Variable(edges.cuda())
+                        edge_att   = Variable(edge_att.cuda().float())
+                        edge_feat  = Variable(edge_feat.cuda().float())
+                    else:
+                        node_features = Variable(node_features.float())
+                        plm_features  = Variable(plm_features.float())
+                        adj_matrix    = Variable(adj_matrix)
+                        xyz_feats     = Variable(xyz_feats.float())
+                        edges         = Variable(edges)
+                        edge_att      = Variable(edge_att.float())
+                        edge_feat     = Variable(edge_feat.float())
+                        G_batch.edata['ex'] = Variable(G_batch.edata['ex'].float())
+                    adj_matrix = torch.squeeze(adj_matrix)
+                    y_pred = m(node_features, xyz_feats, edges, edge_att, edge_feat,
+                               adj_matrix, plm_features=plm_features)
+                    y_pred = torch.nn.Softmax(dim=1)(y_pred)
+                    pred_dict[sequence_names[0]] = y_pred[:, 1].cpu().detach().numpy()
+            all_preds[fname] = pred_dict
+        return all_preds, fold_files
+
+    print(f"\n========== Cross-Model Ensemble (alpha={alpha:.2f} x Model1 + {1-alpha:.2f} x Model2) ==========")
+    print(f"  Model 1 ({FUSION_MODE}): {Model_Path}")
+    print(f"  Model 2 ({fusion_mode2}): {model_path2}")
+
+    preds1, folds1 = collect_fold_preds(Model_Path, FUSION_MODE, D_PROJ)
+    preds2, folds2 = collect_fold_preds(model_path2, fusion_mode2, d_proj2)
+
+    if not preds1 or not preds2:
+        print("Cross-model ensemble skipped: need >= 1 fold model in each directory.")
+        return
+
+    # Build label lookup
+    label_dict = {row['ID']: np.array(row['label']) for _, row in test_dataframe.iterrows()}
+    protein_ids = list(next(iter(preds1.values())).keys())
+
+    ensemble_preds  = []
+    ensemble_labels = []
+
+    for pid in protein_ids:
+        # Average across folds within each model set
+        avg1 = np.mean([preds1[f][pid] for f in folds1 if pid in preds1[f]], axis=0)
+        avg2 = np.mean([preds2[f][pid] for f in folds2 if pid in preds2[f]], axis=0)
+        blended = alpha * avg1 + (1.0 - alpha) * avg2
+        ensemble_preds.extend(blended)
+        ensemble_labels.extend(label_dict[pid][:len(blended)])
+
+    ensemble_preds  = np.nan_to_num(np.array(ensemble_preds),  nan=0.0)
+    ensemble_labels = np.array(ensemble_labels)
+
+    result = analysis(list(ensemble_labels), list(ensemble_preds))
+    print(f"Cross-Ensemble binary acc:  {result['binary_acc']:.4f}")
+    print(f"Cross-Ensemble precision:   {result['precision']:.4f}")
+    print(f"Cross-Ensemble recall:      {result['recall']:.4f}")
+    print(f"Cross-Ensemble f1:          {result['f1']:.4f}")
+    print(f"Cross-Ensemble AUROC:       {result['AUC']:.4f}")
+    print(f"Cross-Ensemble MCC:         {result['mcc']:.4f}")
+    print(f"Cross-Ensemble AUPRC:       {result['AUPRC']:.4f}")
+    print(f"Cross-Ensemble threshold:   {result['threshold']:.2f}")
+    print()
+
 
 
 def main():

@@ -92,22 +92,35 @@ class FeatureFusionModule(nn.Module):
 
 
 class MultiStreamFusionModule(nn.Module):
-    """Multi-Stream Interaction Fusion Module (MSF).
-    Replaces scalar residue-level convex combination with a learned interaction MLP
-    and residual connection:
-        interaction = LayerNorm(Linear128->128(GELU(Linear256->128(concat(c_proj, p_proj)))))
-        fused = LayerNorm(interaction + c_proj + p_proj)
-    Provides an internal confidence signal for FG-Curriculum compatibility:
-        confidence = Sigmoid(Linear128->1(fused))
+    """Multi-Stream Interaction Fusion Module (MSF) — CurriGate v3 (Gap-Fixed).
+
+    Key design fixes vs. v2:
+      - Gap 2: ESM-2 is first compressed 1280→40d (bottleneck at PSSM/HMM natural scale)
+               before expanding to d_proj. Prevents ESM-2's dense 128d representation from
+               dominating the interaction MLP over PSSM/HMM's sparse 128d expansion.
+      - Gap 3: Residual only adds PSSM/HMM (c_proj), NOT ESM-2 (p_proj).
+               ESM-2 already contributes through the interaction I. Adding p_proj again
+               creates a 2:1 ESM-2 signal vs 1:1 PSSM/HMM, causing bound-complex degradation.
+
+    Architecture:
+        c_proj  = LN(W_c * H_classic)                     [N, d_proj] — 40→d_proj
+        p_proj  = LN(W_p2 * GELU(W_p1 * H_ESM))          [N, d_proj] — 1280→40→d_proj
+        I       = LN(MLP([c_proj || p_proj]))              [N, d_proj]
+        fused   = LN(I + c_proj)                           [N, d_proj]  ← only PSSM/HMM residual
+        gate    = Sigmoid(W_g * fused)                     [N, 1]
     """
     def __init__(self, d_proj=128):
         super(MultiStreamFusionModule, self).__init__()
         self.d_proj = d_proj
         
         # 1. Projections
+        # PSSM+HMM: direct projection 40→d_proj (natural scale preserved)
         self.classical_proj = nn.Linear(40, d_proj)
-        self.plm_proj       = nn.Linear(1280, d_proj)
-        
+        # ESM-2: two-stage 1280→40→d_proj (bottleneck at PSSM/HMM scale before expanding)
+        # Gap 2: this forces ESM-2 through the same 40d information bandwidth as PSSM/HMM
+        self.plm_bottleneck = nn.Sequential(nn.Linear(1280, 40), nn.GELU())
+        self.plm_proj       = nn.Linear(40, d_proj)
+
         self.classical_ln   = nn.LayerNorm(d_proj)
         self.plm_ln         = nn.LayerNorm(d_proj)
         
@@ -128,13 +141,16 @@ class MultiStreamFusionModule(nn.Module):
         # Initialize projections
         nn.init.xavier_uniform_(self.classical_proj.weight, gain=1.0)
         nn.init.zeros_(self.classical_proj.bias)
+        nn.init.xavier_uniform_(self.plm_bottleneck[0].weight, gain=1.0)
+        nn.init.zeros_(self.plm_bottleneck[0].bias)
         nn.init.xavier_uniform_(self.plm_proj.weight, gain=1.0)
         nn.init.zeros_(self.plm_proj.bias)
         
     def forward(self, classical_i, plm_i, edges=None):
-        # Project both streams to shared dim d
-        c_proj = self.classical_ln(self.classical_proj(classical_i.float()))  # (N, d)
-        p_proj = self.plm_ln(self.plm_proj(plm_i.float()))                  # (N, d)
+        # PSSM+HMM: direct 40→d_proj projection
+        c_proj = self.classical_ln(self.classical_proj(classical_i.float()))                    # (N, d_proj)
+        # ESM-2: two-stage 1280→40→d_proj via bottleneck (Gap 2)
+        p_proj = self.plm_ln(self.plm_proj(self.plm_bottleneck(plm_i.float())))                # (N, d_proj)
         
         # Concatenate projected streams
         concat_cp = torch.cat([c_proj, p_proj], dim=-1)  # (N, 2d)
@@ -142,8 +158,10 @@ class MultiStreamFusionModule(nn.Module):
         # Interaction MLP
         interaction = self.interaction_mlp(concat_cp)   # (N, d)
         
-        # Residual fusion
-        fused_i = self.fused_ln(interaction + c_proj + p_proj)  # (N, d)
+        # Gap 3: Residual adds ONLY PSSM/HMM (c_proj), not ESM-2 (p_proj).
+        # ESM-2 already contributes through the interaction vector I.
+        # Adding p_proj again would create 2:1 ESM-2 vs 1:1 PSSM/HMM signal imbalance.
+        fused_i = self.fused_ln(interaction + c_proj)           # (N, d_proj)
         
         # Confidence signal for FG-Curriculum
         confidence = torch.sigmoid(self.confidence_head(fused_i))  # (N, 1)
