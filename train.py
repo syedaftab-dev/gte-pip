@@ -16,6 +16,18 @@ from final_model import *
 from GraphTransformer_Block import *
 
 
+def create_model(fusion_mode, d_proj, class_weights, use_curriculum):
+    """Factory function: picks DualStreamModel for 'dualstream', FinalModel otherwise."""
+    if fusion_mode == 'dualstream':
+        return DualStreamModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
+                               fusion_mode=fusion_mode, d_proj=d_proj, class_weights=class_weights,
+                               use_curriculum=use_curriculum)
+    else:
+        return FinalModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
+                          fusion_mode=fusion_mode, d_proj=d_proj, class_weights=class_weights,
+                          use_curriculum=use_curriculum)
+
+
 def compute_class_weights(dataframe):
     """Compute class weights from a dataframe's label column.
     Uses sqrt(neg/pos) heuristic — softer than the raw ratio, prevents the model
@@ -33,7 +45,7 @@ def compute_class_weights(dataframe):
     return weights
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--fusion_mode', type=str, default='none', choices=['none', 'concat', 'gated', 'cross_attn', 'multistream'])
+parser.add_argument('--fusion_mode', type=str, default='none', choices=['none', 'concat', 'gated', 'cross_attn', 'multistream', 'dualstream'])
 parser.add_argument('--d_proj', type=int, default=128)
 parser.add_argument('--use_curriculum', action='store_true', help="Enable Focal-Gate Coupled Curriculum Learning")
 parser.add_argument('--model_time', type=str, default=None)
@@ -322,9 +334,7 @@ def cross_validation(all_dataframe, fold_number=5):
         train_dataframe = all_dataframe.iloc[:2]
         valid_dataframe = all_dataframe.iloc[2:4]
         class_weights = compute_class_weights(train_dataframe)
-        model = FinalModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
-                           fusion_mode=FUSION_MODE, d_proj=D_PROJ, class_weights=class_weights,
-                           use_curriculum=USE_CURRICULUM)
+        model = create_model(FUSION_MODE, D_PROJ, class_weights, USE_CURRICULUM)
         if torch.cuda.is_available():
             model.cuda()
         best_epoch, valid_auc, valid_aupr = train(model, train_dataframe, valid_dataframe, fold=1)
@@ -343,12 +353,9 @@ def cross_validation(all_dataframe, fold_number=5):
         print("Train on", str(train_dataframe.shape[0]), "samples, validate on",
               str(valid_dataframe.shape[0]), "samples")
 
-        # Compute class weights from THIS fold's training set only (no data leakage)
         class_weights = compute_class_weights(train_dataframe)
 
-        model = FinalModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
-                           fusion_mode=FUSION_MODE, d_proj=D_PROJ, class_weights=class_weights,
-                           use_curriculum=USE_CURRICULUM)
+        model = create_model(FUSION_MODE, D_PROJ, class_weights, USE_CURRICULUM)
 
         if torch.cuda.is_available():
             model.cuda()
@@ -378,9 +385,7 @@ def train_full_model(all_dataframe, aver_epoch):
 
     # Compute class weights from the full training set
     class_weights = compute_class_weights(all_dataframe)
-    model = FinalModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
-                       fusion_mode=FUSION_MODE, d_proj=D_PROJ, class_weights=class_weights,
-                       use_curriculum=USE_CURRICULUM)
+    model = create_model(FUSION_MODE, D_PROJ, class_weights, USE_CURRICULUM)
     if torch.cuda.is_available():
         model.cuda()
 

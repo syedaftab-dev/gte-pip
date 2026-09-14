@@ -11,14 +11,14 @@ from final_model import *
 from GraphTransformer_Block import *
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--fusion_mode', type=str, default='none', choices=['none', 'concat', 'gated', 'cross_attn', 'multistream'])
+parser.add_argument('--fusion_mode', type=str, default='none', choices=['none', 'concat', 'gated', 'cross_attn', 'multistream', 'dualstream'])
 parser.add_argument('--d_proj', type=int, default=128)
 parser.add_argument('--model_dir', type=str, required=True, help="Directory containing the primary model checkpoints")
 # Cross-model ensemble: optionally blend a second model's predictions
 parser.add_argument('--model_dir2', type=str, default=None,
                     help="(Optional) Second model dir for cross-model ensemble (e.g., baseline)")
 parser.add_argument('--fusion_mode2', type=str, default='none',
-                    choices=['none', 'concat', 'gated', 'cross_attn', 'multistream'],
+                    choices=['none', 'concat', 'gated', 'cross_attn', 'multistream', 'dualstream'],
                     help="Fusion mode for the second model")
 parser.add_argument('--blend_alpha', type=float, default=0.5,
                     help="Weight for model_dir1 predictions (model_dir2 gets 1-alpha). Default=0.5")
@@ -32,6 +32,16 @@ if not Model_Path.endswith('/'):
     Model_Path += '/'
 
 Dataset_Path = "./Dataset/"
+
+
+def create_test_model(fusion_mode, d_proj):
+    """Factory: picks DualStreamModel for 'dualstream', FinalModel otherwise."""
+    if fusion_mode == 'dualstream':
+        return DualStreamModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
+                               fusion_mode=fusion_mode, d_proj=d_proj)
+    else:
+        return FinalModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
+                          fusion_mode=fusion_mode, d_proj=d_proj)
 
 
 def evaluate(model, data_loader):
@@ -160,7 +170,7 @@ def test(test_dataframe, psepos_path):
         if not model_name.endswith('.pkl'):
             continue
         print(model_name)
-        model = FinalModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER, fusion_mode=FUSION_MODE, d_proj=D_PROJ)
+        model = create_test_model(FUSION_MODE, D_PROJ)
         if torch.cuda.is_available():
             model.cuda()
         model.load_state_dict(torch.load(Model_Path + model_name, map_location='cuda:0', weights_only=True))
@@ -258,8 +268,7 @@ def ensemble_test(test_dataframe, psepos_path):
         return
 
     for model_name in fold_models:
-        model = FinalModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
-                           fusion_mode=FUSION_MODE, d_proj=D_PROJ)
+        model = create_test_model(FUSION_MODE, D_PROJ)
         if torch.cuda.is_available():
             model.cuda()
         model.load_state_dict(torch.load(Model_Path + model_name, map_location='cuda:0', weights_only=True))
@@ -365,8 +374,7 @@ def cross_model_ensemble_test(test_dataframe, psepos_path, model_path2, fusion_m
         fold_files = sorted([f for f in os.listdir(model_dir) if f.endswith('.pkl') and f.startswith('Fold')])
         all_preds = {}  # model_name -> {prot_id: np.array of probs}
         for fname in fold_files:
-            m = FinalModel(INPUT_DIM, HIDDEN_DIM, FLITER_DIM, OUTPUT_SIZE, DROPOUT, LAYER,
-                           fusion_mode=fm, d_proj=dp)
+            m = create_test_model(fm, dp)
             if torch.cuda.is_available():
                 m.cuda()
             m.load_state_dict(torch.load(model_dir + fname,

@@ -11,7 +11,7 @@
 **CurriGate-MSF v3** addresses the core challenge of Protein-Protein Interaction (PPI) site prediction: balancing precision on static bound complexes while retaining strong structural generalization on real-world unbound (apo) protein conformations.
 
 By integrating ESM-2 contextual embeddings (`esm2_t33_650M_UR50D`) with alignment-based evolutionary profiles (PSSM + HMM), guided by a Focal-Gate Curriculum (**FG-Curriculum**) and a Cross-Model Ensemble ($\alpha = 0.35$), CurriGate-MSF v3 achieves:
-- **`Test_60` (Bound Complexes)**: **0.4957 MCC / 0.5920 AUPRC / 0.8712 AUROC**, effectively matching the original GTE-PPIS paper (**0.5000 MCC / 0.6110 AUPRC / 0.8730 AUROC**).
+- **`Test_60` (Bound Complexes)**: **0.4957 MCC / 0.5920 AUPRC / 0.8712 AU  ROC**, effectively matching the original GTE-PPIS paper (**0.5000 MCC / 0.6110 AUPRC / 0.8730 AUROC**).
 - **`UBtest_31-6` (Unbound Conformations)**: **0.3887 MCC / 0.4565 AUPRC / 0.8218 AUROC**, outperforming the GTE-PPIS paper (**0.3200 MCC / 0.3430 AUPRC**) by **+21.5% relative MCC** and **+33.1% relative AUPRC**, setting a new state-of-the-art benchmark.
 
 ---
